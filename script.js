@@ -40,7 +40,9 @@
   SERVICES.forEach((s, i) => {
     const el = document.createElement('div');
     el.className = 'item';
-    el.innerHTML = `<img src="${s.img}" alt="${s.t}" draggable="false" onerror="this.style.display='none'">`;
+    el.dataset.t = s.t;
+    // Si falta la foto, el objeto se muestra como placa con su nombre
+    el.innerHTML = `<img src="${s.img}" alt="${s.t}" draggable="false" onerror="this.parentNode.classList.add('no-img')">`;
     itemsEl.appendChild(el);
     items.push(el);
   });

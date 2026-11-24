@@ -40,6 +40,8 @@ button,input,select,textarea{font:inherit}
 .items{position:absolute;inset:0;transform-style:preserve-3d;pointer-events:none}
 .item{position:absolute;left:50%;top:50%;width:var(--I);margin-left:calc(var(--I)/-2);margin-top:calc(var(--I)/-2 * .6);transform-style:preserve-3d;opacity:0;will-change:transform,opacity}
 .item img{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none}
+.item.no-img img{display:none}
+.item.no-img::before{content:attr(data-t);display:grid;place-items:center;width:100%;aspect-ratio:1;border-radius:50%;border:1px solid var(--gold-soft);background:#fffdf9;box-shadow:0 30px 60px rgba(28,23,20,.12);padding:28px;text-align:center;font:600 clamp(26px,3vw,38px)/1.1 'Cormorant Garamond',serif;color:var(--ink)}
 
 .caption{position:absolute;left:7vw;bottom:14vh;max-width:540px}
 .caption .num{font-size:12px;letter-spacing:.3em;color:var(--gold)}
