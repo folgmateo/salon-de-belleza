@@ -30,7 +30,8 @@
   const N = SERVICES.length;
   // Cada objeto ocupa una ventana W del scroll: entra girando, se detiene a mostrar info y se aleja.
   const START = 0.03, END_PAD = 0.08, W = (1 - START - END_PAD) / N;
-  const OFFSET_X = [-0.14, 0.12, -0.1, 0.15, -0.12, 0.1]; // posición lateral para que no se encimen
+  // Cada objeto sale de la caja hacia su lado y, al final, sigue volando en esa misma dirección
+  const OFFSET_X = [-0.2, 0.18, -0.16, 0.22, -0.18, 0.16];
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const items = [];
   let R = 300, S = 240, I = 260, curIdx = -1;
@@ -62,7 +63,7 @@
   // ---- Render según progreso del scroll (0..1) ----
   function render(p) {
     box.style.transform = `rotateX(-16deg) rotateY(${p * 360}deg)`;
-    box.style.opacity = String(1 - 0.75 * clamp((p - 0.02) / 0.1));
+    box.style.opacity = String(1 - clamp((p - 0.02) / 0.1)); // la caja se apaga al salir el primer objeto
 
     items.forEach((el, i) => {
       const u = (p - (START + i * W)) / W;   // 0..1 dentro de su ventana
@@ -71,22 +72,25 @@
         el.style.transform = 'translate3d(0,0,-1600px) scale(0.3)';
         return;
       }
-      const x = OFFSET_X[i % OFFSET_X.length] * innerWidth;
-      let z, rotY, rotX = 0, scale, op;
-      if (u < 0.38) {                     // entra desde el fondo, girando 360°
-        const a = easeOut(u / 0.38);
-        z = -1600 + 1660 * a; rotY = 360 * a; scale = 0.3 + 0.7 * a; op = Math.min(1, u / 0.12);
-        rotX = -20 * (1 - a);
-      } else if (u < 0.72) {              // se queda al frente mostrando la información
-        const f = (u - 0.38) / 0.34;
-        z = 60 + Math.sin(f * Math.PI) * 25; rotY = Math.sin(f * Math.PI * 2) * 6; scale = 1; op = 1;
-      } else {                            // se aleja hacia atrás y desaparece
-        const b = easeIn((u - 0.72) / 0.28);
-        z = 60 - 1660 * b; rotY = 360 * b * 0.5; scale = 1 - 0.7 * b; op = 1 - b;
-        rotX = 14 * b;
+      const ox = OFFSET_X[i % OFFSET_X.length] * innerWidth; // lado al que se dispara
+      const oy = -0.06 * innerHeight;
+      let x, y, z, rotY, rotX, scale, op;
+      if (u < 0.36) {                     // sale de la caja hacia el frente, girando 360° en 3D
+        const a = easeOut(u / 0.36);
+        x = ox * a; y = oy * a; z = -1600 + 1660 * a;
+        scale = 0.3 + 0.7 * a; rotY = 360 * a; rotX = -18 * (1 - a); op = Math.min(1, u / 0.1);
+      } else if (u < 0.66) {              // se queda al frente mostrando la información
+        const f = (u - 0.36) / 0.3;
+        x = ox; y = oy + Math.sin(f * Math.PI) * 6; z = 60; scale = 1;
+        rotY = Math.sin(f * Math.PI * 2) * 4; rotX = 0; op = 1;
+      } else {                            // vuela hacia donde iba, girando otra vez, y sale de pantalla
+        const b = easeIn((u - 0.66) / 0.34);
+        x = ox + ox * 4 * b; y = oy + oy * 3 * b; z = 60 + 1000 * b;
+        scale = 1 + 0.5 * b; rotY = 360 * b; rotX = 22 * b;
+        op = 1 - Math.max(0, (b - 0.7) / 0.3);
       }
       el.style.opacity = op;
-      el.style.transform = `translate3d(${x}px,0,${z}px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${scale})`;
+      el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${scale})`;
     });
 
     const idx = clamp(Math.floor((p - START) / W), 0, N - 1);
