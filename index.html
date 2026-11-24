@@ -79,7 +79,7 @@
           <label>Servicio
             <select name="servicio" required>
               <option>Corte y estilo</option>
-              <option>Color y mechas</option>
+              <option>Secado y peinado</option>
               <option>Maquillaje</option>
               <option>Manicura y pedicura</option>
               <option>Tratamientos faciales</option>
@@ -93,6 +93,20 @@
           <button class="btn btn-gold btn-block" type="submit">Confirmar cita</button>
         </form>
         <div class="ok" id="ok" hidden></div>
+
+        <details class="cancel">
+          <summary>¿Necesitas cancelar tu cita?</summary>
+          <form id="cancel-form">
+            <label>Código de cita (te llegó por correo)
+              <input name="codigo" required maxlength="10" autocomplete="off">
+            </label>
+            <label>Correo con el que reservaste
+              <input name="email" type="email" required maxlength="120">
+            </label>
+            <p class="msg" id="cancel-msg" role="status"></p>
+            <button class="btn btn-ghost-dark" type="submit">Cancelar cita</button>
+          </form>
+        </details>
       </div>
     </div>
   </section>

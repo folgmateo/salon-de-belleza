@@ -4,40 +4,42 @@
     telefono: '+502 5487 0255',
     horas: ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'],
     cerradoDomingo: true,
-    // Envío automático del recordatorio con EmailJS (gratis). Si lo dejas vacío,
-    // el botón "Abrir correo" prepara el recordatorio en el correo del cliente.
-    emailjs: { serviceId: '', templateId: '', publicKey: '' }
+    // URL de la app web de Google Apps Script (ver backend/LEEME.md). Vacío = modo local (solo este navegador).
+    backend: ''
   };
 
+  // Fotos sin fondo en img/*.webp
   const SERVICES = [
-    { t: 'Corte y estilo', d: 'Cortes a medida y asesoría de forma: el corte que realza tu rostro y se adapta a tu día a día.',
-      svg: '<circle cx="20" cy="46" r="8"/><circle cx="44" cy="46" r="8"/><path d="M26 40 50 12M38 40 14 12"/>' },
-    { t: 'Color y mechas', d: 'Coloración, balayage y mechas con productos cuidadosos que protegen la fibra capilar.',
-      svg: '<rect x="24" y="8" width="16" height="30" rx="3"/><path d="M24 22h16"/><path d="M32 38c-6 8-2 16 2 16s8-8-2-16z"/>' },
-    { t: 'Maquillaje', d: 'Maquillaje social, para bodas, eventos y sesiones fotográficas, con acabados que duran toda la jornada.',
-      svg: '<rect x="20" y="26" width="24" height="26" rx="4"/><path d="M32 26V10M26 10h12"/>' },
-    { t: 'Manicura y pedicura', d: 'Uñas impecables, diseño de nail art y tratamientos de hidratación para manos y pies.',
-      svg: '<rect x="22" y="22" width="20" height="30" rx="4"/><rect x="28" y="8" width="8" height="10" rx="2"/><path d="M22 34h20"/>' },
-    { t: 'Tratamientos faciales', d: 'Limpieza profunda, hidratación y terapias para una piel luminosa y equilibrada.',
-      svg: '<rect x="14" y="30" width="36" height="16" rx="4"/><path d="M14 30v-4h36v4M20 22h24"/>' },
-    { t: 'Peinados para ocasiones', d: 'Peinados de novia, quinceañeras y eventos especiales, listos para lucir toda la noche.',
-      svg: '<rect x="12" y="20" width="40" height="10" rx="2"/><path d="M16 30v14M22 30v14M28 30v14M34 30v14M40 30v14M46 30v14"/>' }
+    { t: 'Corte y estilo', img: 'img/tijeras.webp',
+      d: 'Cortes a medida y asesoría de forma: el corte que realza tu rostro y se adapta a tu día a día.' },
+    { t: 'Secado y peinado', img: 'img/secador.webp',
+      d: 'Secado con acabado profesional, brillo y volumen para que tu peinado dure todo el día.' },
+    { t: 'Maquillaje', img: 'img/labial.webp',
+      d: 'Maquillaje social, para bodas, eventos y sesiones fotográficas, con acabados que duran toda la jornada.' },
+    { t: 'Manicura y pedicura', img: 'img/esmalte.webp',
+      d: 'Uñas impecables, diseño de nail art y tratamientos de hidratación para manos y pies.' },
+    { t: 'Tratamientos faciales', img: 'img/crema.webp',
+      d: 'Limpieza profunda, hidratación y terapias para una piel luminosa y equilibrada.' },
+    { t: 'Peinados para ocasiones', img: 'img/cepillo.webp',
+      d: 'Peinados de novia, quinceañeras y eventos especiales, listos para lucir toda la noche.' }
   ];
 
   const $ = s => document.querySelector(s);
   const stage = $('#stage'), box = $('#box'), itemsEl = $('#items');
   const capEl = $('#caption'), bar = $('#bar');
   const N = SERVICES.length;
-  const START = 0.04, STEP = 0.13, LEN = 0.3; // ventana de cada disparo (0..1 del scroll)
+  // Cada objeto ocupa una ventana W del scroll: entra girando, se detiene a mostrar info y se aleja.
+  const START = 0.03, END_PAD = 0.08, W = (1 - START - END_PAD) / N;
+  const OFFSET_X = [-0.14, 0.12, -0.1, 0.15, -0.12, 0.1]; // posición lateral para que no se encimen
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const items = [];
-  let R = 300, S = 240, I = 140, curIdx = -1;
+  let R = 300, S = 240, I = 260, curIdx = -1;
 
-  // ---- Construir objetos ----
+  // ---- Construir objetos (fotos) ----
   SERVICES.forEach((s, i) => {
     const el = document.createElement('div');
     el.className = 'item';
-    el.innerHTML = `<div class="card"><svg viewBox="0 0 64 64" aria-hidden="true">${s.svg}</svg><small>${s.t}</small></div>`;
+    el.innerHTML = `<img src="${s.img}" alt="${s.t}" draggable="false" onerror="this.style.display='none'">`;
     itemsEl.appendChild(el);
     items.push(el);
   });
@@ -45,8 +47,8 @@
   // ---- Tamaños responsivos ----
   function layout() {
     const w = innerWidth;
-    S = Math.round(Math.min(260, Math.max(170, w * 0.36)));
-    I = Math.round(Math.min(140, Math.max(96, w * 0.28)));
+    S = Math.round(Math.min(230, Math.max(160, w * 0.34)));
+    I = Math.round(Math.min(340, Math.max(200, w * 0.42)));
     R = Math.round(Math.min(w * 0.4, 420));
     const root = document.documentElement.style;
     root.setProperty('--S', S + 'px');
@@ -54,25 +56,40 @@
   }
 
   const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
-  const easeOutExpo = t => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
+  const easeOut = t => 1 - Math.pow(1 - t, 3);
+  const easeIn = t => t * t * t;
 
   // ---- Render según progreso del scroll (0..1) ----
   function render(p) {
     box.style.transform = `rotateX(-16deg) rotateY(${p * 360}deg)`;
+    box.style.opacity = String(1 - 0.75 * clamp((p - 0.02) / 0.1));
 
     items.forEach((el, i) => {
-      const t = clamp((p - (START + i * STEP)) / LEN);
-      const e = easeOutExpo(t);
-      const th = (i / N) * Math.PI * 2 - Math.PI / 2; // anillo de 360° alrededor de la caja
-      const x = R * Math.cos(th) * e;
-      const y = R * 0.42 * Math.sin(th) * e;
-      const z = -S * 0.5 + (R * 0.6 * Math.sin(th) + S * 0.5) * e; // sale desde dentro de la caja
-      const scale = 0.25 + 0.75 * e;
-      el.style.transform = `translate3d(${x}px,${y}px,${z}px) rotateY(${360 * e}deg) scale(${scale})`;
-      el.style.opacity = t === 0 ? 0 : Math.min(1, t * 4);
+      const u = (p - (START + i * W)) / W;   // 0..1 dentro de su ventana
+      if (u <= 0 || u >= 1) {
+        el.style.opacity = 0;
+        el.style.transform = 'translate3d(0,0,-1600px) scale(0.3)';
+        return;
+      }
+      const x = OFFSET_X[i % OFFSET_X.length] * innerWidth;
+      let z, rotY, rotX = 0, scale, op;
+      if (u < 0.38) {                     // entra desde el fondo, girando 360°
+        const a = easeOut(u / 0.38);
+        z = -1600 + 1660 * a; rotY = 360 * a; scale = 0.3 + 0.7 * a; op = Math.min(1, u / 0.12);
+        rotX = -20 * (1 - a);
+      } else if (u < 0.72) {              // se queda al frente mostrando la información
+        const f = (u - 0.38) / 0.34;
+        z = 60 + Math.sin(f * Math.PI) * 25; rotY = Math.sin(f * Math.PI * 2) * 6; scale = 1; op = 1;
+      } else {                            // se aleja hacia atrás y desaparece
+        const b = easeIn((u - 0.72) / 0.28);
+        z = 60 - 1660 * b; rotY = 360 * b * 0.5; scale = 1 - 0.7 * b; op = 1 - b;
+        rotX = 14 * b;
+      }
+      el.style.opacity = op;
+      el.style.transform = `translate3d(${x}px,0,${z}px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${scale})`;
     });
 
-    const idx = clamp(Math.floor((p - START) / STEP), 0, N - 1);
+    const idx = clamp(Math.floor((p - START) / W), 0, N - 1);
     if (p < START) {
       if (curIdx !== -1) { curIdx = -1; setCaption(null); }
     } else if (idx !== curIdx) {
@@ -108,8 +125,9 @@
 
   // ---- Agenda ----
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const state = { cur: new Date(today.getFullYear(), today.getMonth(), 1), fecha: null, hora: null, last: null };
+  const state = { cur: new Date(today.getFullYear(), today.getMonth(), 1), fecha: null, hora: null, ocupadas: [] };
   const grid = $('#grid'), slotsEl = $('#slots'), monthEl = $('#month'), form = $('#form'), msg = $('#msg'), ok = $('#ok');
+  const cancelForm = $('#cancel-form'), cancelMsg = $('#cancel-msg');
   const DOW = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
 
   const pad = n => String(n).padStart(2, '0');
@@ -118,7 +136,20 @@
     const [y, m, d] = key.split('-').map(Number);
     return new Date(y, m - 1, d).toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   };
-  const getCitas = () => { try { return JSON.parse(localStorage.getItem('citas') || '[]'); } catch { return []; } };
+  // Modo local: citas guardadas en este navegador (cuando no hay backend)
+  const localCitas = () => { try { return JSON.parse(localStorage.getItem('citas') || '[]'); } catch { return []; } };
+
+  async function cargarOcupadas(fecha) {
+    if (!CONFIG.backend) {
+      state.ocupadas = localCitas().filter(c => c.fecha === fecha && c.estado !== 'cancelada').map(c => c.hora);
+      return;
+    }
+    try {
+      const r = await fetch(`${CONFIG.backend}?fecha=${encodeURIComponent(fecha)}`);
+      const j = await r.json();
+      state.ocupadas = j.ocupadas || [];
+    } catch { state.ocupadas = []; }
+  }
 
   function renderCal() {
     const y = state.cur.getFullYear(), m = state.cur.getMonth();
@@ -133,7 +164,13 @@
       b.className = 'day' + (key === state.fecha ? ' sel' : '') + (key === iso(today) ? ' hoy' : '');
       b.textContent = d;
       b.disabled = date < today || (CONFIG.cerradoDomingo && date.getDay() === 0);
-      b.addEventListener('click', () => { state.fecha = key; state.hora = null; renderCal(); renderSlots(); });
+      b.addEventListener('click', async () => {
+        state.fecha = key; state.hora = null;
+        renderCal();
+        slotsEl.innerHTML = '<p class="hint">Cargando horarios…</p>';
+        await cargarOcupadas(key);
+        renderSlots();
+      });
       grid.appendChild(b);
     }
   }
@@ -141,14 +178,13 @@
   function renderSlots() {
     slotsEl.innerHTML = '';
     if (!state.fecha) { slotsEl.innerHTML = '<p class="hint">Elige un día para ver los horarios.</p>'; return; }
-    const ocupadas = getCitas().filter(c => c.fecha === state.fecha).map(c => c.hora);
     const now = new Date();
     CONFIG.horas.forEach(h => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'slot' + (state.hora === h ? ' sel' : '');
       b.textContent = h;
-      b.disabled = ocupadas.includes(h) || new Date(`${state.fecha}T${h}:00`) < now;
+      b.disabled = state.ocupadas.includes(h) || new Date(`${state.fecha}T${h}:00`) < now;
       b.addEventListener('click', () => { state.hora = h; renderSlots(); });
       slotsEl.appendChild(b);
     });
@@ -165,44 +201,21 @@
     return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Salon de Belleza//ES', 'BEGIN:VEVENT',
       `UID:${Date.now()}@salon-de-belleza`, `DTSTAMP:${stamp}`,
       `DTSTART:${y}${m}${d}T${hh}0000`, `DTEND:${y}${m}${d}T${pad(+hh + 1)}0000`,
-      `SUMMARY:Cita - Salón de Belleza (${c.servicio})`, `DESCRIPTION:Tel. ${CONFIG.telefono}`,
+      `SUMMARY:Cita - Salón de Belleza (${c.servicio})`, `DESCRIPTION:Tel. ${CONFIG.telefono} · Código ${c.codigo || ''}`,
       'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', 'DESCRIPTION:Mañana tienes tu cita', 'END:VALARM',
       'BEGIN:VALARM', 'TRIGGER:-PT1H', 'ACTION:DISPLAY', 'DESCRIPTION:Tu cita es en una hora', 'END:VALARM',
       'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
   }
 
-  function textoRecordatorio(c) {
-    return `Hola ${c.nombre}, te recordamos tu cita en Salón de Belleza.\n\n` +
-      `Fecha: ${fmtFecha(c.fecha)}\nHora: ${c.hora}\nServicio: ${c.servicio}\n\n` +
-      `Si necesitas cambiarla, llámanos al ${CONFIG.telefono}.\n\n¡Te esperamos!`;
-  }
-  const mailtoFor = c => `mailto:${encodeURIComponent(c.email)}?subject=${encodeURIComponent('Recordatorio de tu cita - Salón de Belleza')}&body=${encodeURIComponent(textoRecordatorio(c))}`;
-
-  // Envío automático por EmailJS si está configurado
-  async function enviarRecordatorio(c) {
-    const e = CONFIG.emailjs;
-    if (!e.serviceId || !e.templateId || !e.publicKey) return false;
-    try {
-      const r = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          service_id: e.serviceId, template_id: e.templateId, user_id: e.publicKey,
-          template_params: { to_email: c.email, to_name: c.nombre, fecha: fmtFecha(c.fecha), hora: c.hora,
-            servicio: c.servicio, telefono: CONFIG.telefono, mensaje: textoRecordatorio(c) }
-        })
-      });
-      return r.ok;
-    } catch { return false; }
-  }
-
-  function showOk(c, sent) {
+  function showOk(c) {
     ok.hidden = false;
     ok.replaceChildren();
     const h = document.createElement('h3'); h.textContent = '¡Cita agendada!';
     const p1 = document.createElement('p'); p1.textContent = `${fmtFecha(c.fecha)} a las ${c.hora} · ${c.servicio}`;
-    const p2 = document.createElement('p');
-    p2.textContent = sent ? `Te enviamos el recordatorio a ${c.email}.`
-      : 'Descarga el recordatorio para tu calendario o envíalo por correo desde aquí.';
+    const p2 = document.createElement('p'); p2.textContent = `Código de cita: ${c.codigo}. Lo necesitas para cancelar.`;
+    const p3 = document.createElement('p');
+    p3.textContent = CONFIG.backend ? `Te enviamos la confirmación y el recordatorio a ${c.email}.`
+      : 'Modo local: descarga el recordatorio para tu calendario.';
     const row = document.createElement('div'); row.className = 'row';
     const ics = document.createElement('button'); ics.type = 'button'; ics.className = 'btn'; ics.textContent = 'Descargar al calendario';
     ics.addEventListener('click', () => {
@@ -212,11 +225,7 @@
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
     row.appendChild(ics);
-    if (!sent) {
-      const mail = document.createElement('a'); mail.className = 'btn alt'; mail.href = mailtoFor(c); mail.textContent = 'Abrir correo con el recordatorio';
-      row.appendChild(mail);
-    }
-    ok.append(h, p1, p2, row);
+    ok.append(h, p1, p2, p3, row);
     ok.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
@@ -231,15 +240,58 @@
       nombre: fd.get('nombre').trim(), telefono: fd.get('telefono').trim(), email: fd.get('email').trim(),
       servicio: fd.get('servicio'), notas: (fd.get('notas') || '').trim()
     };
-    if (getCitas().some(x => x.fecha === c.fecha && x.hora === c.hora)) {
-      msg.textContent = 'Ese horario ya fue reservado. Elige otro.';
-      state.hora = null; renderSlots(); return;
+    const btn = form.querySelector('button[type=submit]');
+    btn.disabled = true;
+    try {
+      if (CONFIG.backend) {
+        // text/plain evita el preflight CORS; el backend parsea el JSON
+        const r = await fetch(CONFIG.backend, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ accion: 'reservar', ...c }) });
+        const j = await r.json();
+        if (!j.ok) { msg.textContent = j.error; state.hora = null; await cargarOcupadas(state.fecha); renderSlots(); return; }
+        c.codigo = j.codigo;
+      } else {
+        if (localCitas().some(x => x.fecha === c.fecha && x.hora === c.hora && x.estado !== 'cancelada')) {
+          msg.textContent = 'Ese horario ya fue reservado. Elige otro.'; return;
+        }
+        c.codigo = Math.random().toString(36).slice(2, 8).toUpperCase();
+        c.estado = 'activa';
+        localStorage.setItem('citas', JSON.stringify([...localCitas(), c]));
+      }
+      showOk(c);
+      form.reset(); state.fecha = null; state.hora = null; state.ocupadas = [];
+      renderCal(); renderSlots();
+    } catch {
+      msg.textContent = 'No pudimos conectar con el servidor. Intenta de nuevo o llámanos.';
+    } finally {
+      btn.disabled = false;
     }
-    localStorage.setItem('citas', JSON.stringify([...getCitas(), c]));
-    const sent = await enviarRecordatorio(c);
-    showOk(c, sent);
-    form.reset(); state.fecha = null; state.hora = null;
-    renderCal(); renderSlots();
+  });
+
+  cancelForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    cancelMsg.textContent = '';
+    const fd = new FormData(cancelForm);
+    const codigo = String(fd.get('codigo') || '').trim().toUpperCase();
+    const email = String(fd.get('email') || '').trim().toLowerCase();
+    try {
+      if (CONFIG.backend) {
+        const r = await fetch(CONFIG.backend, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ accion: 'cancelar', codigo, email }) });
+        const j = await r.json();
+        if (!j.ok) { cancelMsg.textContent = j.error; return; }
+      } else {
+        const all = localCitas();
+        const c = all.find(x => x.codigo === codigo && x.email.toLowerCase() === email && x.estado !== 'cancelada');
+        if (!c) { cancelMsg.textContent = 'No encontramos una cita activa con ese código y correo.'; return; }
+        c.estado = 'cancelada';
+        localStorage.setItem('citas', JSON.stringify(all));
+      }
+      cancelMsg.textContent = 'Tu cita fue cancelada. Te enviamos la confirmación por correo.';
+      cancelForm.reset();
+    } catch {
+      cancelMsg.textContent = 'No pudimos conectar con el servidor. Intenta de nuevo o llámanos.';
+    }
   });
 
   renderCal(); renderSlots();

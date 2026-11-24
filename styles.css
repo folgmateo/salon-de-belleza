@@ -22,7 +22,7 @@ button,input,select,textarea{font:inherit}
 .kicker{margin:0;font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold)}
 
 /* ---------- 3D stage ---------- */
-.hero-stage{position:relative;height:720vh}
+.hero-stage{position:relative;height:640vh}
 .sticky{position:sticky;top:0;height:100vh;height:100dvh;overflow:hidden}
 .scene{position:absolute;inset:0;perspective:1400px;perspective-origin:50% 45%}
 
@@ -39,9 +39,12 @@ button,input,select,textarea{font:inherit}
 
 .items{position:absolute;inset:0;transform-style:preserve-3d;pointer-events:none}
 .item{position:absolute;left:50%;top:50%;width:var(--I);height:var(--I);margin-left:calc(var(--I)/-2);margin-top:calc(var(--I)/-2);transform-style:preserve-3d;opacity:0;will-change:transform,opacity}
-.card{width:100%;height:100%;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--gold);background:radial-gradient(circle at 30% 25%,#3d2b22,#140e0c 70%);border:1px solid rgba(214,178,124,.6);box-shadow:0 0 50px rgba(214,178,124,.22),inset 0 0 22px rgba(0,0,0,.6)}
-.card svg{width:44%;height:44%;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-.card small{font:500 10px Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);text-align:center;line-height:1.2;padding:0 8px}
+.item img{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none;filter:drop-shadow(0 30px 40px rgba(0,0,0,.6)) drop-shadow(0 0 30px rgba(214,178,124,.18))}
+
+.cancel{margin-top:22px;padding:14px 18px;background:#fffaf2;border-radius:6px;color:#2b201b}
+.cancel summary{cursor:pointer;font:600 20px 'Cormorant Garamond',serif}
+.cancel form{margin-top:12px}
+.btn-ghost-dark{background:transparent;color:#2b201b;border:1px solid #2b201b;cursor:pointer}
 
 .caption{position:absolute;left:6vw;bottom:14vh;max-width:520px;transition:opacity .4s}
 .caption .num{font-size:12px;letter-spacing:.3em;color:var(--gold)}
